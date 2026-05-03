@@ -1,0 +1,12 @@
+# ซ่อนไฟล์ตั้งค่า Environment Variables (พวก API Key, Password)
+.env
+.env.local
+
+# ซ่อนโฟลเดอร์ Virtual Environment ของ Python (ที่ใช้เก็บไลบรารี)
+venv/
+env/
+.venv/
+
+# แถมนิดนึง: ซ่อนโฟลเดอร์แคชของ Python จะได้ไม่รกลอค
+__pycache__/
+*.pyc
