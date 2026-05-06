@@ -1306,6 +1306,47 @@ body::before {
     color: var(--error);
 }
 
+/* AI Disclaimer — professional alert box inside summary modal */
+.modal-ai-disclaimer {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    box-sizing: border-box;
+    height: auto;
+    margin: 16px 32px 0;
+    padding: 12px 20px;
+    width: calc(100% - 64px);
+    max-width: calc(100% - 64px);
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.25);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: rgba(250, 204, 80, 0.92);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    overflow: visible;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.modal-ai-disclaimer-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    line-height: 1.65;
+    opacity: 0.95;
+}
+
+.modal-ai-disclaimer-text {
+    flex: 1;
+    min-width: 0;          /* critical: allows flex child to shrink below content size */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.5;
+}
+
 .summary-modal-stats {
     padding: 16px 32px;
     background: rgba(0, 0, 0, 0.2);
