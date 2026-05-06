@@ -1,64 +1,65 @@
 """
 Hard Rules Checker — document_processor.py
-Validates margins, fonts, title sizes, and logo in .docx files
-based on KKU thesis formatting guidelines.
+Validates margins, fonts, title sizes, indentation, keywords, and logo
+in .docx files based on KKU thesis formatting guidelines.
 
-v3: Returns HardRuleError with location/issue/detail format.
+v4: Full hard-rule coverage for ALL 5 slots.
 """
 
 import io
 import re
 from docx import Document
 from docx.shared import Inches, Pt, Emu
-from PIL import Image
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from models import HardRuleError
+
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 
 # ──────────────────────────────────────────────
-# Margin definitions per slot
+# Margin definitions per slot (inches)
 # ──────────────────────────────────────────────
 
 SLOT_MARGINS = {
-    1: {"Top": 2.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},  # Front Matter (logo page)
-    4: {"Top": 1.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},  # Main Content
+    1: {"Top": 2.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},
+    2: {"Top": 1.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},
+    3: {"Top": 1.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},
+    4: {"Top": 1.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},
+    5: {"Top": 1.5, "Left": 1.5, "Bottom": 1.0, "Right": 1.0},
 }
 
-MARGIN_TOLERANCE = 0.1  # inches
+MARGIN_TOLERANCE = 0.15  # inches
 
 
 def check_margins(doc: Document, slot_number: int) -> list[HardRuleError]:
-    """
-    Check document margins against the expected values for the given slot.
-    Returns a list of HardRuleError for any violations.
-    """
     expected = SLOT_MARGINS.get(slot_number)
     if expected is None:
         return []
-
     errors = []
-    section = doc.sections[0]
-
-    actual = {
-        "Top": section.top_margin.inches,
-        "Bottom": section.bottom_margin.inches,
-        "Left": section.left_margin.inches,
-        "Right": section.right_margin.inches,
-    }
-
-    for side, expected_val in expected.items():
-        actual_val = actual[side]
-        if abs(actual_val - expected_val) > MARGIN_TOLERANCE:
-            errors.append(HardRuleError(
-                location="Section 1, Page Setup",
-                issue=f"ระยะขอบ{_thai_side(side)}ผิด (Wrong {side} Margin)",
-                detail=(
-                    f"พบ {actual_val:.2f} นิ้ว (Found {actual_val:.2f} inch). "
-                    f"ค่าที่ถูกต้อง: {expected_val:.1f} นิ้ว (Expected {expected_val:.1f} inch)"
-                ),
-                severity="error",
-                rule_type="margin",
-            ))
-
+    for sec_idx, section in enumerate(doc.sections):
+        actual = {
+            "Top": section.top_margin.inches if section.top_margin else 0,
+            "Bottom": section.bottom_margin.inches if section.bottom_margin else 0,
+            "Left": section.left_margin.inches if section.left_margin else 0,
+            "Right": section.right_margin.inches if section.right_margin else 0,
+        }
+        for side, expected_val in expected.items():
+            actual_val = actual[side]
+            if abs(actual_val - expected_val) > MARGIN_TOLERANCE:
+                errors.append(HardRuleError(
+                    location=f"Section {sec_idx+1}, Page Setup",
+                    issue=f"ระยะขอบ{_thai_side(side)}ผิด (Wrong {side} Margin)",
+                    detail=(
+                        f"พบ {actual_val:.2f} นิ้ว (Found {actual_val:.2f} in). "
+                        f"ค่าที่ถูกต้อง: {expected_val:.1f} นิ้ว (Expected {expected_val:.1f} in)"
+                    ),
+                    severity="error",
+                    rule_type="margin",
+                ))
     return errors
 
 
@@ -67,36 +68,30 @@ def _thai_side(side: str) -> str:
 
 
 # ──────────────────────────────────────────────
-# Font checks
+# Font checks (Global)
 # ──────────────────────────────────────────────
 
-EXPECTED_FONT = "TH Sarabun New"
+ALLOWED_FONTS = {"TH Sarabun New", "TH SarabunPSK", "TH Sarabun PSK"}
 
 
 def check_fonts(doc: Document) -> list[HardRuleError]:
-    """
-    Check that all runs use TH Sarabun New (or inherit it from the style).
-    Flags the first occurrence per paragraph of a wrong font.
-    """
     errors = []
     flagged_paras = set()
-
     for i, para in enumerate(doc.paragraphs):
         if not para.text.strip():
             continue
         for run in para.runs:
             font_name = run.font.name
-            # Skip runs where font is inherited (None) — assume correct
-            if font_name is not None and font_name != EXPECTED_FONT:
+            if font_name is not None and font_name not in ALLOWED_FONTS:
                 if i not in flagged_paras:
                     flagged_paras.add(i)
                     preview = para.text.strip()[:60]
                     errors.append(HardRuleError(
                         location=f"Paragraph {i+1}",
-                        issue=f"ฟอนต์ผิด (Wrong Font)",
+                        issue="ฟอนต์ผิด (Wrong Font)",
                         detail=(
                             f"ใช้ฟอนต์ '{font_name}' ในย่อหน้า: \"{preview}...\" "
-                            f"(ควรใช้ '{EXPECTED_FONT}')"
+                            f"(ควรใช้ TH Sarabun New / TH SarabunPSK)"
                         ),
                         severity="error",
                         rule_type="font",
@@ -105,59 +100,149 @@ def check_fonts(doc: Document) -> list[HardRuleError]:
 
 
 # ──────────────────────────────────────────────
-# Title size check (Slot 1 only)
+# Normal text size check (16pt)
 # ──────────────────────────────────────────────
 
-def check_title_size(doc: Document) -> list[HardRuleError]:
-    """
-    Front Matter: the thesis title (first non-empty paragraph) must be
-    16pt bold or 18pt bold using TH Sarabun New.
-    """
+def check_normal_text_size(doc: Document) -> list[HardRuleError]:
+    errors = []
+    flagged = set()
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text or len(text) < 5:
+            continue
+        for run in para.runs:
+            sz = run.font.size
+            if sz is not None:
+                pt_val = sz.pt
+                if pt_val not in (16, 18) and i not in flagged:
+                    flagged.add(i)
+                    preview = text[:50]
+                    errors.append(HardRuleError(
+                        location=f"Paragraph {i+1}",
+                        issue=f"ขนาดตัวอักษรผิด (Wrong Font Size: {pt_val:.0f}pt)",
+                        detail=(
+                            f"ย่อหน้า: \"{preview}...\" — ขนาด {pt_val:.0f}pt "
+                            f"(เนื้อหาปกติควรเป็น 16pt, หัวข้อ 18pt)"
+                        ),
+                        severity="warning",
+                        rule_type="font_size",
+                    ))
+    return errors
+
+
+# ──────────────────────────────────────────────
+# Title checks (18pt, Bold, Centered)
+# ──────────────────────────────────────────────
+
+def check_titles(doc: Document, expected_titles: list[str], slot_label: str) -> list[HardRuleError]:
+    """Check that paragraphs matching expected_titles are 18pt, bold, centered."""
+    errors = []
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text:
+            continue
+        is_title = any(t in text for t in expected_titles)
+        if not is_title:
+            continue
+        # Check size
+        sizes = [run.font.size.pt for run in para.runs if run.font.size]
+        has_18 = any(abs(s - 18) < 0.5 for s in sizes)
+        if sizes and not has_18:
+            sz_str = ", ".join(f"{s:.0f}pt" for s in sizes)
+            errors.append(HardRuleError(
+                location=f"Paragraph {i+1} ({slot_label})",
+                issue="ขนาดหัวข้อผิด (Title Size ≠ 18pt)",
+                detail=f"หัวข้อ \"{text[:50]}\" — พบ {sz_str} (ควรเป็น 18pt Bold)",
+                severity="error",
+                rule_type="title_size",
+            ))
+        # Check bold
+        has_bold = any(run.font.bold for run in para.runs if run.text.strip())
+        if not has_bold:
+            errors.append(HardRuleError(
+                location=f"Paragraph {i+1} ({slot_label})",
+                issue="หัวข้อไม่เป็นตัวหนา (Title Not Bold)",
+                detail=f"หัวข้อ \"{text[:50]}\" ควรเป็นตัวหนา (Bold)",
+                severity="warning",
+                rule_type="title_bold",
+            ))
+        # Check centered
+        alignment = para.alignment
+        if alignment is not None and alignment != WD_ALIGN_PARAGRAPH.CENTER:
+            errors.append(HardRuleError(
+                location=f"Paragraph {i+1} ({slot_label})",
+                issue="หัวข้อไม่จัดกึ่งกลาง (Title Not Centered)",
+                detail=f"หัวข้อ \"{text[:50]}\" ควรจัดกึ่งกลาง (Center)",
+                severity="warning",
+                rule_type="title_align",
+            ))
+    return errors
+
+
+# ──────────────────────────────────────────────
+# Slot 1: Front Matter specific checks
+# ──────────────────────────────────────────────
+
+SLOT1_REQUIRED_KEYWORDS_TH = ["รายงานการศึกษาอิสระ", "มหาวิทยาลัยขอนแก่น"]
+SLOT1_REQUIRED_KEYWORDS_EN = ["INDEPENDENT STUDY", "KHON KAEN UNIVERSITY"]
+
+
+def check_slot1_keywords(doc: Document) -> list[HardRuleError]:
+    full_text = "\n".join(p.text for p in doc.paragraphs).upper()
+    errors = []
+    for kw in SLOT1_REQUIRED_KEYWORDS_TH:
+        if kw not in "\n".join(p.text for p in doc.paragraphs):
+            errors.append(HardRuleError(
+                location="Cover Page",
+                issue=f"ไม่พบคำสำคัญ: '{kw}'",
+                detail=f"ปกนอก/ปกในควรมีข้อความ '{kw}'",
+                severity="warning",
+                rule_type="keyword",
+            ))
+    for kw in SLOT1_REQUIRED_KEYWORDS_EN:
+        if kw not in full_text:
+            errors.append(HardRuleError(
+                location="Cover Page",
+                issue=f"Missing keyword: '{kw}'",
+                detail=f"Cover page should contain '{kw}'",
+                severity="warning",
+                rule_type="keyword",
+            ))
+    return errors
+
+
+def check_slot1_title_size(doc: Document) -> list[HardRuleError]:
     errors = []
     for i, para in enumerate(doc.paragraphs):
         if not para.text.strip():
             continue
-        # This is the first non-empty paragraph — treat as title
-        has_valid_size = False
-        is_bold = False
         found_sizes = []
+        is_bold = False
         for run in para.runs:
-            size = run.font.size
-            if size is not None:
-                pt_val = size.pt
-                found_sizes.append(pt_val)
-                if pt_val in (16, 18):
-                    has_valid_size = True
-                if run.font.bold:
-                    is_bold = True
-
+            if run.font.size:
+                found_sizes.append(run.font.size.pt)
+            if run.font.bold:
+                is_bold = True
+        has_valid = any(s in (16, 18) for s in found_sizes)
+        sz_str = ", ".join(f"{s:.0f}pt" for s in found_sizes) if found_sizes else "ไม่ระบุ"
         preview = para.text.strip()[:50]
-        size_str = ", ".join(f"{s:.0f}pt" for s in found_sizes) if found_sizes else "ไม่ระบุ"
-
-        if not has_valid_size:
+        if found_sizes and not has_valid:
             errors.append(HardRuleError(
                 location=f"Paragraph {i+1} (Title)",
                 issue="ขนาดหัวข้อผิด (Wrong Title Size)",
-                detail=(
-                    f"หัวข้อ: \"{preview}\" — ขนาดที่พบ: {size_str} "
-                    f"(ควรเป็น 16pt หรือ 18pt ตัวหนา)"
-                ),
+                detail=f"หัวข้อ: \"{preview}\" — พบ {sz_str} (ควรเป็น 16pt หรือ 18pt ตัวหนา)",
                 severity="error",
                 rule_type="title_size",
             ))
-        elif not is_bold:
+        elif found_sizes and has_valid and not is_bold:
             errors.append(HardRuleError(
                 location=f"Paragraph {i+1} (Title)",
                 issue="หัวข้อไม่เป็นตัวหนา (Title Not Bold)",
-                detail=(
-                    f"หัวข้อ: \"{preview}\" — ขนาดถูกต้อง ({size_str}) "
-                    f"แต่ต้องตั้งค่าเป็นตัวหนา (Bold)"
-                ),
+                detail=f"หัวข้อ: \"{preview}\" — ขนาดถูกต้อง ({sz_str}) แต่ต้องเป็นตัวหนา",
                 severity="warning",
                 rule_type="title_size",
             ))
-        break  # Only check the first non-empty paragraph
-
+        break
     return errors
 
 
@@ -165,26 +250,12 @@ def check_title_size(doc: Document) -> list[HardRuleError]:
 # Logo validation (Slot 1 only)
 # ──────────────────────────────────────────────
 
-EXPECTED_LOGO_HEIGHT_CM = 1.8
-EXPECTED_LOGO_WIDTH_CM = 1.1
-LOGO_TOLERANCE_CM = 0.3
-DEFAULT_DPI = 96
-
-
 def check_logo(doc: Document) -> list[HardRuleError]:
-    """
-    Extract the first image from the document, then check:
-    1. It should be grayscale (not RGB/RGBA).
-    2. Its dimensions should be approximately 1.8cm H × 1.1cm W.
-    """
     errors = []
-
-    # python-docx stores images in inline shapes and as relationship targets
     images = []
     for rel in doc.part.rels.values():
         if "image" in rel.reltype:
             images.append(rel.target_part.blob)
-
     if not images:
         errors.append(HardRuleError(
             location="Cover Page",
@@ -194,65 +265,165 @@ def check_logo(doc: Document) -> list[HardRuleError]:
             rule_type="logo",
         ))
         return errors
-
-    # Validate the first image
-    img_bytes = images[0]
-    try:
-        img = Image.open(io.BytesIO(img_bytes))
-    except Exception:
-        errors.append(HardRuleError(
-            location="Cover Page, Image 1",
-            issue="อ่านรูปภาพไม่ได้ (Unreadable Image)",
-            detail="ไม่สามารถอ่านรูปภาพตรามหาวิทยาลัยที่ฝังในเอกสารได้",
-            severity="error",
-            rule_type="logo",
-        ))
+    if not HAS_PIL:
         return errors
+    try:
+        img = Image.open(io.BytesIO(images[0]))
+        if img.mode not in ("L", "LA", "1"):
+            errors.append(HardRuleError(
+                location="Cover Page, Image 1",
+                issue="ตราเป็นภาพสี (Logo Not Grayscale)",
+                detail=f"ตรามหาวิทยาลัยเป็นภาพโหมด '{img.mode}' ควรเป็นภาพขาวดำ",
+                severity="error",
+                rule_type="logo",
+            ))
+    except Exception:
+        pass
+    return errors
 
-    # 1. Check color mode (should be grayscale 'L', not 'RGB' or 'RGBA')
-    if img.mode not in ("L", "LA", "1"):
+
+# ──────────────────────────────────────────────
+# Slot 2: Abstract checks
+# ──────────────────────────────────────────────
+
+SLOT2_TITLES = ["บทคัดย่อ", "ABSTRACT"]
+
+
+def check_slot2_indentation(doc: Document) -> list[HardRuleError]:
+    """Check 0.5-inch first-line indent on body paragraphs."""
+    errors = []
+    checked = 0
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text or len(text) < 20:
+            continue
+        if any(t in text for t in SLOT2_TITLES):
+            continue
+        pf = para.paragraph_format
+        indent = pf.first_line_indent
+        if indent is not None:
+            indent_in = indent.inches
+            if abs(indent_in - 0.5) > 0.15:
+                errors.append(HardRuleError(
+                    location=f"Paragraph {i+1}",
+                    issue="การเยื้องย่อหน้าผิด (Wrong Indentation)",
+                    detail=(
+                        f"ย่อหน้าเยื้อง {indent_in:.2f} นิ้ว "
+                        f"(ควรเป็น 0.5 นิ้ว / ประมาณ 7 ตัวอักษร)"
+                    ),
+                    severity="warning",
+                    rule_type="indentation",
+                ))
+        checked += 1
+        if checked >= 5:
+            break
+    return errors
+
+
+# ──────────────────────────────────────────────
+# Slot 3: TOC checks
+# ──────────────────────────────────────────────
+
+SLOT3_TITLES = ["กิตติกรรมประกาศ", "สารบัญ", "สารบัญตาราง", "สารบัญภาพ"]
+THAI_PAGE_NUMS = set("กขคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ")
+
+
+def check_slot3_thai_page_numbers(doc: Document) -> list[HardRuleError]:
+    """Check if TOC pages use Thai alphabetic page numbering."""
+    errors = []
+    full_text = "\n".join(p.text for p in doc.paragraphs)
+    has_thai_nums = any(c in THAI_PAGE_NUMS for c in full_text)
+    if not has_thai_nums:
         errors.append(HardRuleError(
-            location="Cover Page, Image 1",
-            issue="ตราเป็นภาพสี (Logo Not Grayscale)",
-            detail=(
-                f"ตรามหาวิทยาลัยเป็นภาพโหมด '{img.mode}' (สี) "
-                f"ควรเป็นภาพขาวดำ Grayscale (โหมด 'L')"
-            ),
-            severity="error",
-            rule_type="logo",
-        ))
-
-    # 2. Check dimensions (convert pixels to cm)
-    dpi = img.info.get("dpi", (DEFAULT_DPI, DEFAULT_DPI))
-    dpi_x, dpi_y = dpi if isinstance(dpi, tuple) else (dpi, dpi)
-
-    width_cm = (img.width / dpi_x) * 2.54
-    height_cm = (img.height / dpi_y) * 2.54
-
-    if abs(height_cm - EXPECTED_LOGO_HEIGHT_CM) > LOGO_TOLERANCE_CM:
-        errors.append(HardRuleError(
-            location="Cover Page, Image 1",
-            issue="ความสูงตราผิด (Wrong Logo Height)",
-            detail=(
-                f"ความสูงตรามหาวิทยาลัย: {height_cm:.2f} ซม. "
-                f"(ควรประมาณ {EXPECTED_LOGO_HEIGHT_CM} ซม.)"
-            ),
+            location="Table of Contents",
+            issue="ไม่พบเลขหน้าแบบอักษรไทย (Missing Thai Page Numbers)",
+            detail="สารบัญควรใช้เลขหน้าแบบ ก, ข, ค... ไม่ใช่เลขอารบิก",
             severity="warning",
-            rule_type="logo",
+            rule_type="page_number",
         ))
+    return errors
 
-    if abs(width_cm - EXPECTED_LOGO_WIDTH_CM) > LOGO_TOLERANCE_CM:
-        errors.append(HardRuleError(
-            location="Cover Page, Image 1",
-            issue="ความกว้างตราผิด (Wrong Logo Width)",
-            detail=(
-                f"ความกว้างตรามหาวิทยาลัย: {width_cm:.2f} ซม. "
-                f"(ควรประมาณ {EXPECTED_LOGO_WIDTH_CM} ซม.)"
-            ),
-            severity="warning",
-            rule_type="logo",
-        ))
 
+# ──────────────────────────────────────────────
+# Slot 4: Main Content checks
+# ──────────────────────────────────────────────
+
+CHAPTER_TITLE_PATTERN = re.compile(r'^บทที่\s*\d+', re.UNICODE)
+
+
+def check_slot4_chapter_title(doc: Document) -> list[HardRuleError]:
+    errors = []
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if CHAPTER_TITLE_PATTERN.match(text):
+            sizes = [r.font.size.pt for r in para.runs if r.font.size]
+            has_18 = any(abs(s - 18) < 0.5 for s in sizes)
+            if sizes and not has_18:
+                sz_str = ", ".join(f"{s:.0f}pt" for s in sizes)
+                errors.append(HardRuleError(
+                    location=f"Paragraph {i+1}",
+                    issue=f"ขนาดชื่อบทผิด (Chapter Title ≠ 18pt)",
+                    detail=f"\"{text[:40]}\" — พบ {sz_str} (ควรเป็น 18pt)",
+                    severity="error",
+                    rule_type="title_size",
+                ))
+            alignment = para.alignment
+            if alignment is not None and alignment != WD_ALIGN_PARAGRAPH.CENTER:
+                errors.append(HardRuleError(
+                    location=f"Paragraph {i+1}",
+                    issue="ชื่อบทไม่จัดกึ่งกลาง (Chapter Title Not Centered)",
+                    detail=f"\"{text[:40]}\" ควรจัดกึ่งกลาง",
+                    severity="warning",
+                    rule_type="title_align",
+                ))
+            break
+    return errors
+
+
+# ──────────────────────────────────────────────
+# Slot 5: Bibliography / Appendix checks
+# ──────────────────────────────────────────────
+
+SLOT5_TITLES = ["เอกสารอ้างอิง", "บรรณานุกรม", "ภาคผนวก", "REFERENCES", "BIBLIOGRAPHY", "APPENDIX"]
+
+
+def check_slot5_hanging_indent(doc: Document) -> list[HardRuleError]:
+    """APA 7th: second line of citations should have hanging indent."""
+    errors = []
+    checked = 0
+    in_refs = False
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text:
+            continue
+        if any(t in text.upper() for t in ["เอกสารอ้างอิง", "บรรณานุกรม", "REFERENCES", "BIBLIOGRAPHY"]):
+            in_refs = True
+            continue
+        if any(t in text.upper() for t in ["ภาคผนวก", "APPENDIX"]):
+            in_refs = False
+            continue
+        if not in_refs:
+            continue
+        if len(text) < 15:
+            continue
+        pf = para.paragraph_format
+        hanging = None
+        if pf.first_line_indent and pf.first_line_indent.inches < 0:
+            hanging = abs(pf.first_line_indent.inches)
+        if hanging is None or hanging < 0.2:
+            errors.append(HardRuleError(
+                location=f"Paragraph {i+1}",
+                issue="ไม่พบ Hanging Indent ในรายการอ้างอิง",
+                detail=(
+                    f"รายการอ้างอิง: \"{text[:50]}...\" — "
+                    f"APA 7th กำหนดให้บรรทัดที่ 2 เป็นต้นไปต้องเยื้อง (Hanging Indent ~0.5 นิ้ว)"
+                ),
+                severity="warning",
+                rule_type="hanging_indent",
+            ))
+        checked += 1
+        if checked >= 8:
+            break
     return errors
 
 
@@ -261,7 +432,6 @@ def check_logo(doc: Document) -> list[HardRuleError]:
 # ──────────────────────────────────────────────
 
 def extract_text(doc: Document) -> str:
-    """Extract all non-empty paragraph text from the document."""
     return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
 
 
@@ -269,13 +439,9 @@ def extract_text(doc: Document) -> str:
 # TOC Heading Extraction (Slot 3)
 # ──────────────────────────────────────────────
 
-_TOC_STRIP_RE = re.compile(r'[\.\-–—\s\t]+\d+\s*$')
+_TOC_STRIP_RE = re.compile(r'[\.\ \-–—\s\t]+\d+\s*$')
 
 def extract_toc_headings(doc: Document) -> list[str]:
-    """
-    Extract heading texts from a Table of Contents document.
-    Strips trailing dot-leaders, tabs, and page numbers.
-    """
     headings = []
     for para in doc.paragraphs:
         text = para.text.strip()
@@ -287,34 +453,26 @@ def extract_toc_headings(doc: Document) -> list[str]:
             headings.append(clean)
     return headings
 
+
 # ──────────────────────────────────────────────
 # Content Heading Extraction (Slot 4 chapters)
 # ──────────────────────────────────────────────
 
 def extract_content_headings(doc: Document) -> list[str]:
-    """
-    Extract headings from content by detecting:
-    1. Paragraphs with Heading styles (Heading 1, Heading 2, etc.)
-    2. Paragraphs where ALL runs are bold
-    """
     headings = []
     for para in doc.paragraphs:
         text = para.text.strip()
         if not text or len(text) < 3:
             continue
-
-        # Method 1: Heading style
         if para.style and para.style.name and para.style.name.startswith('Heading'):
             headings.append(text)
             continue
-
-        # Method 2: All non-empty runs are bold (skip long body text)
         runs_with_text = [r for r in para.runs if r.text.strip()]
         if runs_with_text and all(r.bold for r in runs_with_text):
             if len(text) < 120:
                 headings.append(text)
-
     return headings
+
 
 # ──────────────────────────────────────────────
 # TOC vs Content Matcher
@@ -324,16 +482,10 @@ def match_toc_vs_content(
     toc_headings: list[str],
     content_headings: list[str],
 ) -> list[HardRuleError]:
-    """
-    Compare content headings against TOC headings.
-    Flags content headings that don't appear in the TOC list.
-    """
     if not toc_headings:
         return []
-
     errors = []
     toc_set = {h.strip() for h in toc_headings}
-
     for heading in content_headings:
         clean = heading.strip()
         if clean not in toc_set:
@@ -347,11 +499,11 @@ def match_toc_vs_content(
                 severity="warning",
                 rule_type="toc_mismatch",
             ))
-
     return errors
 
+
 # ──────────────────────────────────────────────
-# Main entry point per slot
+# SLOT_NAMES
 # ──────────────────────────────────────────────
 
 SLOT_NAMES = {
@@ -363,6 +515,10 @@ SLOT_NAMES = {
 }
 
 
+# ──────────────────────────────────────────────
+# Main entry point per slot — ALL SLOTS COVERED
+# ──────────────────────────────────────────────
+
 def process_slot(doc: Document, slot_number: int) -> list[HardRuleError]:
     """
     Run all applicable hard-rule checks for the given slot.
@@ -370,16 +526,32 @@ def process_slot(doc: Document, slot_number: int) -> list[HardRuleError]:
     """
     errors = []
 
-    # Slot 1: Front Matter -> Needs margins, fonts, title size, logo
-    if slot_number == 1:
-        errors.extend(check_margins(doc, 1))
-        errors.extend(check_fonts(doc))
-        errors.extend(check_title_size(doc))
-        errors.extend(check_logo(doc))
+    # ── Global checks (all slots) ──
+    errors.extend(check_margins(doc, slot_number))
+    errors.extend(check_fonts(doc))
 
-    # Slot 4: Main Content -> Needs margins, fonts
+    # ── Slot-specific checks ──
+    if slot_number == 1:
+        errors.extend(check_slot1_title_size(doc))
+        errors.extend(check_logo(doc))
+        errors.extend(check_slot1_keywords(doc))
+
+    elif slot_number == 2:
+        errors.extend(check_titles(doc, SLOT2_TITLES, "Abstract"))
+        errors.extend(check_slot2_indentation(doc))
+        errors.extend(check_normal_text_size(doc))
+
+    elif slot_number == 3:
+        errors.extend(check_titles(doc, SLOT3_TITLES, "TOC"))
+        errors.extend(check_slot3_thai_page_numbers(doc))
+
     elif slot_number == 4:
-        errors.extend(check_margins(doc, 4))
-        errors.extend(check_fonts(doc))
+        errors.extend(check_slot4_chapter_title(doc))
+        errors.extend(check_normal_text_size(doc))
+
+    elif slot_number == 5:
+        errors.extend(check_titles(doc, SLOT5_TITLES, "References"))
+        errors.extend(check_slot5_hanging_indent(doc))
+        errors.extend(check_normal_text_size(doc))
 
     return errors

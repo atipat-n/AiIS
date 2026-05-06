@@ -4,13 +4,18 @@ Google Gemini integration for KKU Thesis AI Checker.
 Chunking & Iterative Extraction architecture.
 """
 
+import os
 import google.generativeai as genai
 import time
+from dotenv import load_dotenv
 
 # ──────────────────────────────────────────────
-# ⚠️ REPLACE THIS WITH YOUR REAL GEMINI API KEY
+# Load API key from .env file (never hardcode!)
 # ──────────────────────────────────────────────
-GEMINI_API_KEY = "AIzaSyByAlVSBgR6zoId8M7gOOeh_5YRHbyieoo"
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise RuntimeError("❌ GEMINI_API_KEY not found! Create a .env file with: GEMINI_API_KEY=your_key_here")
 genai.configure(api_key=GEMINI_API_KEY)
 
 
