@@ -600,7 +600,7 @@ function renderSummaryModal(sourceKey, sourceName) {
 
     stats.innerHTML = `
         <div style="display:flex; gap:24px; color:white;">
-            <div><strong>🛑 Errors:</strong> <span style="color:var(--error);">${errCount}</span></div>
+            <div><strong>🔴 Errors:</strong> <span style="color:var(--error);">${errCount}</span></div>
             <div><strong>⚠️ Warnings:</strong> <span style="color:var(--warning);">${warnCount}</span></div>
         </div>
     `;
@@ -608,7 +608,7 @@ function renderSummaryModal(sourceKey, sourceName) {
     let html = '';
 
     if (filteredErrors.length > 0) {
-        html += `<h3 style="color:var(--kku-gold); margin-bottom:16px;">🛑 Hard Rules Feedback</h3>`;
+        html += `<h3 style="color:var(--kku-gold); margin-bottom:16px;">🔴 Hard Rules Feedback</h3>`;
         html += `<table class="modal-table">
             <thead>
                 <tr>

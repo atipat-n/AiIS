@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="ระบบตรวจสอบรูปแบบวิทยานิพนธ์อัตโนมัติ มหาวิทยาลัยขอนแก่น - Pro Version">
-    <title>KKU Thesis AI Checker — Pro Version</title>
+    <meta name="description" content="ระบบตรวจสอบรูปแบบสารนิพนธ์อัตโนมัติ วิทยาลัยบัณฑิตศึกษาการจัดการ">
+    <title>MBA IS Checker</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -31,7 +31,26 @@
     <!-- ═══════ MAIN DASHBOARD ═══════ -->
     <main class="dashboard">
 
-        <!-- ─── LEFT PANEL: Upload Slots ─── -->
+        <!-- ─── LEFT PANEL: Instructions ─── -->
+        <div class="panel" id="instructions-panel">
+            <div class="panel-header">
+                <span class="icon">📌</span>
+                <h2>ขั้นตอนการใช้งาน</h2>
+            </div>
+            <div class="panel-body">
+                <ol class="instructions-list">
+                    <li>อัปโหลดไฟล์ทีละส่วน</li>
+                    <li>รอระบบตรวจสอบ Hard Rules & AI</li>
+                    <li>ดูผลลัพธ์และแก้ไข</li>
+                </ol>
+                <div class="instruction-warning">
+                    <div class="warning-title">⚠️ คำเตือน</div>
+                    <p>กรุณาตรวจสอบความถูกต้องกับอาจารย์ที่ปรึกษาอีกครั้ง ระบบนี้เป็นเพียงผู้ช่วยคัดกรองเบื้องต้น</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── MIDDLE PANEL: Upload Slots ─── -->
         <div class="panel" id="upload-panel">
             <div class="panel-header">
                 <span class="icon">📁</span>
