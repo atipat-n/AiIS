@@ -11,6 +11,12 @@
 </head>
 
 <body>
+    <!-- Theme Setup Script -->
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.body.classList.add('dark-mode');
+        }
+    </script>
 
     <!-- ═══════ HEADER ═══════ -->
     <header class="header">
@@ -18,16 +24,29 @@
             <div class="header-left">
                 <img src="assets/mba_kku_logo.png" alt="MBA KKU Logo" class="header-logo">
                 <div>
-                    <h1>MBA IS AI Checker <span>Pro</span></h1>
-                    <p class="header-subtitle">ระบบตรวจสอบรูปแบบสารนิพนธ์อัจฉริยะ มหาวิทยาลัยขอนแก่น</p>
+                    <h1 data-i18n="header.title">MBA IS AI Checker <span>Pro</span></h1>
+                    <p class="header-subtitle" data-i18n="header.subtitle">ระบบตรวจสอบรูปแบบสารนิพนธ์อัจฉริยะ มหาวิทยาลัยขอนแก่น</p>
                 </div>
             </div>
-            <div class="header-badge">🔬 Version 4.1</div>
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <div style="display:flex; gap:8px;">
+                    <!-- Lang Toggle -->
+                    <button id="lang-toggle" class="theme-toggle-btn" aria-label="Toggle Language" style="font-weight: 600;">
+                        <span class="lang-th">TH</span>&nbsp;<span style="color:var(--text-muted)">|</span>&nbsp;<span class="lang-en" style="opacity: 0.4;">EN</span>
+                    </button>
+                    <!-- Dark Mode Toggle -->
+                    <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark Mode">
+                        <span class="sun-icon">☀️</span>
+                        <span class="moon-icon">🌙</span>
+                    </button>
+                </div>
+                <div class="header-badge">🔬 Version 4.1</div>
+            </div>
         </div>
     </header>
 
     <!-- ═══════ WARNING BANNER ═══════ -->
-    <div class="warning-banner">⚠️ ระบบอาจมีความคลาดเคลื่อน (AI Error) โปรดยึดตามคู่มือ MBA และคำแนะนำของอาจารย์ผู้ตรวจเป็นหลัก</div>
+    <div class="warning-banner" data-i18n="banner.warning">⚠️ ระบบอาจมีความคลาดเคลื่อน (AI Error) โปรดยึดตามคู่มือ MBA และคำแนะนำของอาจารย์ผู้ตรวจเป็นหลัก</div>
 
     <!-- ═══════ MAIN DASHBOARD ═══════ -->
     <main class="dashboard">
@@ -35,18 +54,20 @@
         <!-- ─── LEFT PANEL: Instructions ─── -->
         <div class="panel" id="instructions-panel">
             <div class="panel-header">
-                <span class="icon">📌</span>
-                <h2>ขั้นตอนการใช้งาน</h2>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="icon">📌</span>
+                    <h2 data-i18n="sidebar.howToUse">ขั้นตอนการใช้งาน</h2>
+                </div>
             </div>
             <div class="panel-body">
                 <ol class="instructions-list">
-                    <li><strong>อัปโหลดเอกสาร:</strong> อัปโหลดไฟล์เอกสาร (เฉพาะ .docx) ลงในระบบ โดยแยกอัปโหลดตามช่องที่กำหนดไว้ทั้ง 5 ส่วน (เช่น ส่วนปก, ส่วนเนื้อหา, บรรณานุกรม)</li>
-                    <li><strong>ระบบประมวลผล:</strong> กดปุ่ม "ตรวจสอบ" ระบบจะทำการสแกนและวิเคราะห์เอกสารของคุณอย่างละเอียด ทั้งในด้านรูปแบบโครงสร้าง (Hard Rules) และบริบทของเนื้อหา (AI) ในเวลาไม่กี่วินาที</li>
-                    <li><strong>ตรวจสอบและแก้ไข:</strong> ระบบจะแสดงผลการตรวจสอบ พร้อมชี้เป้าหมายจุดที่พบข้อผิดพลาดอย่างชัดเจน (เช่น ระยะขอบผิดระเบียบ, การกั้นหน้าคลาดเคลื่อน, หรือพบคำสะกดผิด) ผู้ใช้สามารถนำข้อเสนอแนะไปปรับแก้ไขในเอกสารต้นฉบับได้ทันที</li>
+                    <li data-i18n="sidebar.step1"><strong>อัปโหลดเอกสาร:</strong> อัปโหลดไฟล์เอกสาร (เฉพาะ .docx) ลงในระบบ โดยแยกอัปโหลดตามช่องที่กำหนดไว้ทั้ง 5 ส่วน (เช่น ส่วนปก, ส่วนเนื้อหา, บรรณานุกรม)</li>
+                    <li data-i18n="sidebar.step2"><strong>ระบบประมวลผล:</strong> กดปุ่ม "ตรวจสอบ" ระบบจะทำการสแกนและวิเคราะห์เอกสารของคุณอย่างละเอียด ทั้งในด้านรูปแบบโครงสร้าง (Hard Rules) และบริบทของเนื้อหา (AI) ในเวลาไม่กี่วินาที</li>
+                    <li data-i18n="sidebar.step3"><strong>ตรวจสอบและแก้ไข:</strong> ระบบจะแสดงผลการตรวจสอบ พร้อมชี้เป้าหมายจุดที่พบข้อผิดพลาดอย่างชัดเจน (เช่น ระยะขอบผิดระเบียบ, การกั้นหน้าคลาดเคลื่อน, หรือพบคำสะกดผิด) ผู้ใช้สามารถนำข้อเสนอแนะไปปรับแก้ไขในเอกสารต้นฉบับได้ทันที</li>
                 </ol>
                 <div class="instruction-warning">
-                    <div class="warning-title">⚠️ คำเตือน</div>
-                    <p>กรุณาตรวจสอบความถูกต้องกับอาจารย์ที่ปรึกษาอีกครั้ง ระบบนี้เป็นเพียงผู้ช่วยคัดกรองเบื้องต้น</p>
+                    <div class="warning-title" data-i18n="sidebar.warningTitle">⚠️ คำเตือน</div>
+                    <p data-i18n="sidebar.warningText">กรุณาตรวจสอบความถูกต้องกับอาจารย์ที่ปรึกษาอีกครั้ง ระบบนี้เป็นเพียงผู้ช่วยคัดกรองเบื้องต้น</p>
                 </div>
             </div>
         </div>
@@ -55,7 +76,7 @@
         <div class="panel" id="upload-panel">
             <div class="panel-header">
                 <span class="icon">📁</span>
-                <h2>อัปโหลดเอกสาร (5 ส่วน)</h2>
+                <h2 data-i18n="upload.title">อัปโหลดเอกสาร (5 ส่วน)</h2>
             </div>
 
             <!-- Progress overview -->
@@ -77,12 +98,12 @@
                         <div class="slot-header-left">
                             <div class="slot-number">1</div>
                             <div>
-                                <div class="slot-title">ส่วนหน้า (Front Matter)</div>
-                                <div class="slot-subtitle">ปกนอก ปกใน ใบรับรอง กิตติกรรมประกาศ</div>
+                                <div class="slot-title" data-i18n="upload.slot1Title">ส่วนหน้า (Front Matter)</div>
+                                <div class="slot-subtitle" data-i18n="upload.slot1Sub">ปกนอก ปกใน ใบรับรอง กิตติกรรมประกาศ</div>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="slot-status status-pending" id="status-1">⏳ รอตรวจ</span>
+                            <span class="slot-status status-pending" id="status-1" data-i18n="upload.statusPending">⏳ รอตรวจ</span>
                             <span class="slot-arrow">▼</span>
                         </div>
                     </div>
@@ -91,12 +112,12 @@
                             <div class="upload-area" id="upload-area-1">
                                 <input type="file" accept=".docx" id="file-1" onchange="onFileSelect(1)">
                                 <div class="upload-icon">📄</div>
-                                <p>ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
+                                <p data-i18n="upload.dragDrop1">ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
                                 <p class="file-name" id="fname-1"></p>
                             </div>
                             <button class="btn-scan" id="btn-1" onclick="uploadSlot(1)" disabled>
                                 <span class="spinner"></span>
-                                <span class="btn-text">🔍 สแกนส่วนหน้า</span>
+                                <span class="btn-text" data-i18n="btn.scan1">🔍 สแกนส่วนหน้า</span>
                             </button>
                             <div class="chunk-progress-wrap hidden" id="chunk-prog-1">
                                 <div class="chunk-status-text" id="chunk-status-1">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -113,12 +134,12 @@
                         <div class="slot-header-left">
                             <div class="slot-number">2</div>
                             <div>
-                                <div class="slot-title">บทคัดย่อ (Abstract)</div>
-                                <div class="slot-subtitle">บทคัดย่อภาษาไทยและภาษาอังกฤษ</div>
+                                <div class="slot-title" data-i18n="upload.slot2Title">บทคัดย่อ (Abstract)</div>
+                                <div class="slot-subtitle" data-i18n="upload.slot2Sub">บทคัดย่อภาษาไทยและภาษาอังกฤษ</div>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="slot-status status-pending" id="status-2">⏳ รอตรวจ</span>
+                            <span class="slot-status status-pending" id="status-2" data-i18n="upload.statusPending">⏳ รอตรวจ</span>
                             <span class="slot-arrow">▼</span>
                         </div>
                     </div>
@@ -127,12 +148,12 @@
                             <div class="upload-area" id="upload-area-2">
                                 <input type="file" accept=".docx" id="file-2" onchange="onFileSelect(2)">
                                 <div class="upload-icon">📝</div>
-                                <p>ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
+                                <p data-i18n="upload.dragDrop1">ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
                                 <p class="file-name" id="fname-2"></p>
                             </div>
                             <button class="btn-scan" id="btn-2" onclick="uploadSlot(2)" disabled>
                                 <span class="spinner"></span>
-                                <span class="btn-text">🔍 สแกนบทคัดย่อ</span>
+                                <span class="btn-text" data-i18n="btn.scan2">🔍 สแกนบทคัดย่อ</span>
                             </button>
                             <div class="chunk-progress-wrap hidden" id="chunk-prog-2">
                                 <div class="chunk-status-text" id="chunk-status-2">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -149,12 +170,12 @@
                         <div class="slot-header-left">
                             <div class="slot-number">3</div>
                             <div>
-                                <div class="slot-title">สารบัญ (Table of Contents)</div>
-                                <div class="slot-subtitle">สารบัญเนื้อหา สารบัญตาราง สารบัญภาพ</div>
+                                <div class="slot-title" data-i18n="upload.slot3Title">สารบัญ (Table of Contents)</div>
+                                <div class="slot-subtitle" data-i18n="upload.slot3Sub">สารบัญเนื้อหา สารบัญตาราง สารบัญภาพ</div>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="slot-status status-pending" id="status-3">⏳ รอตรวจ</span>
+                            <span class="slot-status status-pending" id="status-3" data-i18n="upload.statusPending">⏳ รอตรวจ</span>
                             <span class="slot-arrow">▼</span>
                         </div>
                     </div>
@@ -163,12 +184,12 @@
                             <div class="upload-area" id="upload-area-3">
                                 <input type="file" accept=".docx" id="file-3" onchange="onFileSelect(3)">
                                 <div class="upload-icon">📑</div>
-                                <p>ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
+                                <p data-i18n="upload.dragDrop1">ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
                                 <p class="file-name" id="fname-3"></p>
                             </div>
                             <button class="btn-scan" id="btn-3" onclick="uploadSlot(3)" disabled>
                                 <span class="spinner"></span>
-                                <span class="btn-text">🔍 สแกนสารบัญ</span>
+                                <span class="btn-text" data-i18n="btn.scan3">🔍 สแกนสารบัญ</span>
                             </button>
                             <div class="chunk-progress-wrap hidden" id="chunk-prog-3">
                                 <div class="chunk-status-text" id="chunk-status-3">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -185,12 +206,12 @@
                         <div class="slot-header-left">
                             <div class="slot-number">4</div>
                             <div>
-                                <div class="slot-title">เนื้อหา (Main Content)</div>
-                                <div class="slot-subtitle">บทที่ 1-5 เนื้อหาหลักของวิทยานิพนธ์</div>
+                                <div class="slot-title" data-i18n="upload.slot4Title">เนื้อหา (Main Content)</div>
+                                <div class="slot-subtitle" data-i18n="upload.slot4Sub">บทที่ 1-5 เนื้อหาหลักของวิทยานิพนธ์</div>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="slot-status status-pending" id="status-4">⏳ รอตรวจ</span>
+                            <span class="slot-status status-pending" id="status-4" data-i18n="upload.statusPending">⏳ รอตรวจ</span>
                             <span class="slot-arrow">▼</span>
                         </div>
                     </div>
@@ -209,7 +230,7 @@
                             <div class="sub-slot" id="sub-slot-4-1">
                                 <div class="sub-slot-header" onclick="toggleSubSlot(1)">
                                     <span class="sub-slot-badge">4.1</span>
-                                    <span class="sub-slot-title">บทที่ 1 บทนำ (Introduction)</span>
+                                    <span class="sub-slot-title" data-i18n="upload.ch1Title">บทที่ 1 บทนำ (Introduction)</span>
                                     <span class="slot-status status-pending" id="status-4-1">⏳</span>
                                 </div>
                                 <div class="sub-slot-body" id="sub-body-4-1">
@@ -217,13 +238,13 @@
                                         <input type="file" accept=".docx" id="file-4-1"
                                             onchange="onChapterFileSelect(1)">
                                         <div class="upload-icon">📖</div>
-                                        <p>อัปโหลดบทที่ 1</p>
+                                        <p data-i18n="upload.dragDrop2">อัปโหลดบทที่ 1</p>
                                         <p class="file-name" id="fname-4-1"></p>
                                     </div>
                                     <button class="btn-scan btn-scan-chapter" id="btn-4-1" onclick="uploadChapter(1)"
                                         disabled>
                                         <span class="spinner"></span>
-                                        <span class="btn-text">🔍 สแกนบทที่ 1</span>
+                                        <span class="btn-text" data-i18n="btn.scan4_1">🔍 สแกนบทที่ 1</span>
                                     </button>
                                     <div class="chunk-progress-wrap hidden" id="chunk-prog-4-1">
                                         <div class="chunk-status-text" id="chunk-status-4-1">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -237,7 +258,7 @@
                             <div class="sub-slot" id="sub-slot-4-2">
                                 <div class="sub-slot-header" onclick="toggleSubSlot(2)">
                                     <span class="sub-slot-badge">4.2</span>
-                                    <span class="sub-slot-title">บทที่ 2 ทบทวนวรรณกรรม (Literature Review)</span>
+                                    <span class="sub-slot-title" data-i18n="upload.ch2Title">บทที่ 2 ทบทวนวรรณกรรม (Literature Review)</span>
                                     <span class="slot-status status-pending" id="status-4-2">⏳</span>
                                 </div>
                                 <div class="sub-slot-body" id="sub-body-4-2">
@@ -245,13 +266,13 @@
                                         <input type="file" accept=".docx" id="file-4-2"
                                             onchange="onChapterFileSelect(2)">
                                         <div class="upload-icon">📖</div>
-                                        <p>อัปโหลดบทที่ 2</p>
+                                        <p data-i18n="upload.dragDrop3">อัปโหลดบทที่ 2</p>
                                         <p class="file-name" id="fname-4-2"></p>
                                     </div>
                                     <button class="btn-scan btn-scan-chapter" id="btn-4-2" onclick="uploadChapter(2)"
                                         disabled>
                                         <span class="spinner"></span>
-                                        <span class="btn-text">🔍 สแกนบทที่ 2</span>
+                                        <span class="btn-text" data-i18n="btn.scan4_2">🔍 สแกนบทที่ 2</span>
                                     </button>
                                     <div class="chunk-progress-wrap hidden" id="chunk-prog-4-2">
                                         <div class="chunk-status-text" id="chunk-status-4-2">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -265,7 +286,7 @@
                             <div class="sub-slot" id="sub-slot-4-3">
                                 <div class="sub-slot-header" onclick="toggleSubSlot(3)">
                                     <span class="sub-slot-badge">4.3</span>
-                                    <span class="sub-slot-title">บทที่ 3 ระเบียบวิธีวิจัย (Methodology)</span>
+                                    <span class="sub-slot-title" data-i18n="upload.ch3Title">บทที่ 3 ระเบียบวิธีวิจัย (Methodology)</span>
                                     <span class="slot-status status-pending" id="status-4-3">⏳</span>
                                 </div>
                                 <div class="sub-slot-body" id="sub-body-4-3">
@@ -273,13 +294,13 @@
                                         <input type="file" accept=".docx" id="file-4-3"
                                             onchange="onChapterFileSelect(3)">
                                         <div class="upload-icon">📖</div>
-                                        <p>อัปโหลดบทที่ 3</p>
+                                        <p data-i18n="upload.dragDrop4">อัปโหลดบทที่ 3</p>
                                         <p class="file-name" id="fname-4-3"></p>
                                     </div>
                                     <button class="btn-scan btn-scan-chapter" id="btn-4-3" onclick="uploadChapter(3)"
                                         disabled>
                                         <span class="spinner"></span>
-                                        <span class="btn-text">🔍 สแกนบทที่ 3</span>
+                                        <span class="btn-text" data-i18n="btn.scan4_3">🔍 สแกนบทที่ 3</span>
                                     </button>
                                     <div class="chunk-progress-wrap hidden" id="chunk-prog-4-3">
                                         <div class="chunk-status-text" id="chunk-status-4-3">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -293,7 +314,7 @@
                             <div class="sub-slot" id="sub-slot-4-4">
                                 <div class="sub-slot-header" onclick="toggleSubSlot(4)">
                                     <span class="sub-slot-badge">4.4</span>
-                                    <span class="sub-slot-title">บทที่ 4 ผลการวิจัย (Results)</span>
+                                    <span class="sub-slot-title" data-i18n="upload.ch4Title">บทที่ 4 ผลการวิจัย (Results)</span>
                                     <span class="slot-status status-pending" id="status-4-4">⏳</span>
                                 </div>
                                 <div class="sub-slot-body" id="sub-body-4-4">
@@ -301,13 +322,13 @@
                                         <input type="file" accept=".docx" id="file-4-4"
                                             onchange="onChapterFileSelect(4)">
                                         <div class="upload-icon">📖</div>
-                                        <p>อัปโหลดบทที่ 4</p>
+                                        <p data-i18n="upload.dragDrop5">อัปโหลดบทที่ 4</p>
                                         <p class="file-name" id="fname-4-4"></p>
                                     </div>
                                     <button class="btn-scan btn-scan-chapter" id="btn-4-4" onclick="uploadChapter(4)"
                                         disabled>
                                         <span class="spinner"></span>
-                                        <span class="btn-text">🔍 สแกนบทที่ 4</span>
+                                        <span class="btn-text" data-i18n="btn.scan4_4">🔍 สแกนบทที่ 4</span>
                                     </button>
                                     <div class="chunk-progress-wrap hidden" id="chunk-prog-4-4">
                                         <div class="chunk-status-text" id="chunk-status-4-4">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -321,7 +342,7 @@
                             <div class="sub-slot" id="sub-slot-4-5">
                                 <div class="sub-slot-header" onclick="toggleSubSlot(5)">
                                     <span class="sub-slot-badge">4.5</span>
-                                    <span class="sub-slot-title">บทที่ 5 สรุปและอภิปราย (Conclusion)</span>
+                                    <span class="sub-slot-title" data-i18n="upload.ch5Title">บทที่ 5 สรุปและอภิปราย (Conclusion)</span>
                                     <span class="slot-status status-pending" id="status-4-5">⏳</span>
                                 </div>
                                 <div class="sub-slot-body" id="sub-body-4-5">
@@ -329,13 +350,13 @@
                                         <input type="file" accept=".docx" id="file-4-5"
                                             onchange="onChapterFileSelect(5)">
                                         <div class="upload-icon">📖</div>
-                                        <p>อัปโหลดบทที่ 5</p>
+                                        <p data-i18n="upload.dragDrop6">อัปโหลดบทที่ 5</p>
                                         <p class="file-name" id="fname-4-5"></p>
                                     </div>
                                     <button class="btn-scan btn-scan-chapter" id="btn-4-5" onclick="uploadChapter(5)"
                                         disabled>
                                         <span class="spinner"></span>
-                                        <span class="btn-text">🔍 สแกนบทที่ 5</span>
+                                        <span class="btn-text" data-i18n="btn.scan4_5">🔍 สแกนบทที่ 5</span>
                                     </button>
                                     <div class="chunk-progress-wrap hidden" id="chunk-prog-4-5">
                                         <div class="chunk-status-text" id="chunk-status-4-5">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -355,12 +376,12 @@
                         <div class="slot-header-left">
                             <div class="slot-number">5</div>
                             <div>
-                                <div class="slot-title">บรรณานุกรม (References)</div>
-                                <div class="slot-subtitle">รายการอ้างอิง APA 7th Edition</div>
+                                <div class="slot-title" data-i18n="upload.slot5Title">บรรณานุกรม (References)</div>
+                                <div class="slot-subtitle" data-i18n="upload.slot5Sub">รายการอ้างอิง APA 7th Edition</div>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;gap:8px;">
-                            <span class="slot-status status-pending" id="status-5">⏳ รอตรวจ</span>
+                            <span class="slot-status status-pending" id="status-5" data-i18n="upload.statusPending">⏳ รอตรวจ</span>
                             <span class="slot-arrow">▼</span>
                         </div>
                     </div>
@@ -369,12 +390,12 @@
                             <div class="upload-area" id="upload-area-5">
                                 <input type="file" accept=".docx" id="file-5" onchange="onFileSelect(5)">
                                 <div class="upload-icon">📚</div>
-                                <p>ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
+                                <p data-i18n="upload.dragDrop1">ลากไฟล์มาวางหรือคลิกเพื่อเลือก</p>
                                 <p class="file-name" id="fname-5"></p>
                             </div>
                             <button class="btn-scan" id="btn-5" onclick="uploadSlot(5)" disabled>
                                 <span class="spinner"></span>
-                                <span class="btn-text">🔍 สแกนบรรณานุกรม</span>
+                                <span class="btn-text" data-i18n="btn.scan5">🔍 สแกนบรรณานุกรม</span>
                             </button>
                             <div class="chunk-progress-wrap hidden" id="chunk-prog-5">
                                 <div class="chunk-status-text" id="chunk-status-5">กำลังวิเคราะห์อย่างละเอียด...</div>
@@ -392,27 +413,27 @@
         <div class="panel insights-panel" id="insights-panel">
             <div class="panel-header">
                 <span class="icon">🤖</span>
-                <h2>AI Analysis & Cross-Check</h2>
+                <h2 data-i18n="insights.title">AI Analysis & Cross-Check</h2>
             </div>
 
             <!-- Cross-Check Status -->
             <div class="insight-card">
-                <div class="insight-title">🔗 Citation Cross-Check</div>
+                <div class="insight-title" data-i18n="insights.citationTitle">🔗 Citation Cross-Check</div>
                 <div id="crosscheck-area">
                     <div class="empty-state">
                         <div class="empty-icon">🔍</div>
-                        <p>อัปโหลด Slot 4 (เนื้อหา) และ Slot 5 (บรรณานุกรม)<br>เพื่อเปิดใช้การตรวจสอบอ้างอิงข้ามส่วน</p>
+                        <p data-i18n="insights.citationEmpty">อัปโหลด Slot 4 (เนื้อหา) และ Slot 5 (บรรณานุกรม)<br>เพื่อเปิดใช้การตรวจสอบอ้างอิงข้ามส่วน</p>
                     </div>
                 </div>
             </div>
 
             <!-- AI Summary -->
             <div class="insight-card">
-                <div class="insight-title">🤖 AI Analysis Summary</div>
+                <div class="insight-title" data-i18n="insights.aiTitle">🤖 AI Analysis Summary</div>
                 <div id="ai-summary-area">
                     <div class="empty-state">
                         <div class="empty-icon">🧠</div>
-                        <p>ผลวิเคราะห์จาก AI จะปรากฏที่นี่<br>หลังอัปโหลดเอกสารแต่ละส่วน</p>
+                        <p data-i18n="insights.aiEmpty">ผลวิเคราะห์จาก AI จะปรากฏที่นี่<br>หลังอัปโหลดเอกสารแต่ละส่วน</p>
                     </div>
                 </div>
             </div>
@@ -428,10 +449,10 @@
 
     <!-- ═══════ FOOTER ═══════ -->
     <footer class="footer">
-        <p>© 2026 MBA IS AI Checker Pro — <a href="https://mba.kku.ac.th" target="_blank">วิทยาลัยบัณฑิตศึกษาการจัดการ
-                มหาวิทยาลัยขอนแก่น</a></p>
+        <p data-i18n="footer.text">© 2026 MBA IS AI Checker Pro — <a href="https://mba.kku.ac.th" target="_blank">วิทยาลัยบัณฑิตศึกษาการจัดการ มหาวิทยาลัยขอนแก่น</a></p>
     </footer>
 
+    <script src="i18n.js"></script>
     <script src="app.js"></script>
 
     <!-- ═══════ SUMMARY MODAL (Full-screen checklist) ═══════ -->
@@ -440,20 +461,20 @@
             <div class="summary-modal-header">
                 <div class="summary-modal-title">
                     <span>📋</span>
-                    <h2>รายการที่ต้องแก้ไขทั้งหมด (Full Error Checklist)</h2>
+                    <h2 data-i18n="modal.checklistTitle">รายการที่ต้องแก้ไขทั้งหมด (Full Error Checklist)</h2>
                 </div>
                 <button class="summary-close-btn" onclick="closeSummaryModal()">✕</button>
             </div>
             <!-- ⚠️ AI Disclaimer Warning — Alert Box -->
             <div class="modal-ai-disclaimer">
                 <span class="modal-ai-disclaimer-icon">⚠️</span>
-                <span class="modal-ai-disclaimer-text">ข้อควรระวัง: ผลการตรวจสอบและข้อเสนอแนะจาก AI อาจคลาดเคลื่อน หรือมีการเปลี่ยนแปลงคำแนะนำในแต่ละครั้ง โปรดใช้วิจารณญาณส่วนบุคคลในการพิจารณาแก้ไขเอกสารของท่าน</span>
+                <span class="modal-ai-disclaimer-text" data-i18n="modal.aiWarning">ข้อควรระวัง: ผลการตรวจสอบและข้อเสนอแนะจาก AI อาจคลาดเคลื่อน หรือมีการเปลี่ยนแปลงคำแนะนำในแต่ละครั้ง โปรดใช้วิจารณญาณส่วนบุคคลในการพิจารณาแก้ไขเอกสารของท่าน</span>
             </div>
             <div class="summary-modal-stats" id="summary-stats"></div>
             <div class="summary-modal-body" id="summary-modal-body">
                 <div class="empty-state">
                     <div class="empty-icon">🔍</div>
-                    <p>ยังไม่มีผลการตรวจสอบ</p>
+                    <p data-i18n="modal.empty">ยังไม่มีผลการตรวจสอบ</p>
                 </div>
             </div>
         </div>
@@ -464,20 +485,24 @@
         <div class="modal-box">
             <button class="modal-close" id="modal-close-btn" onclick="closeDisclaimer()" aria-label="Close">✕</button>
             <div class="modal-icon">⚠️</div>
-            <h2 class="modal-title">คำเตือนการใช้งานระบบ</h2>
+            <h2 class="modal-title" data-i18n="disclaimer.title">คำเตือนการใช้งานระบบ</h2>
             <div class="modal-body">
-                <p>ห้ามเชื่อถือการทำงานของระบบ 100% เนื่องจากการทำงานของ AI
-                    และระบบสกัดข้อมูลอาจมีความคลาดเคลื่อนหรือทำงานผิดพลาด (AI Error) ได้ในทางเทคนิค</p>
-                <p>ระบบนี้เป็นเพียง<strong>ผู้ช่วยคัดกรองเบื้องต้น</strong>เท่านั้น นักศึกษาต้องศึกษาและปฏิบัติตาม
-                    <strong>"กฎระเบียบการทำเล่มวิทยานิพนธ์/การศึกษาอิสระของหลักสูตร MBA"</strong> อย่างเคร่งครัด
-                    และต้องผ่านการตรวจสอบจากอาจารย์ที่ปรึกษาและผู้ตรวจรูปแบบของมหาวิทยาลัยเสมอ
-                </p>
+                <p data-i18n="disclaimer.text1">ห้ามเชื่อถือการทำงานของระบบ 100% เนื่องจากการทำงานของ AI และระบบสกัดข้อมูลอาจมีความคลาดเคลื่อนหรือทำงานผิดพลาด (AI Error) ได้ในทางเทคนิค</p>
+                <p data-i18n="disclaimer.text2">ระบบนี้เป็นเพียง<strong>ผู้ช่วยคัดกรองเบื้องต้น</strong>เท่านั้น นักศึกษาต้องศึกษาและปฏิบัติตาม <strong>"กฎระเบียบการทำเล่มวิทยานิพนธ์/การศึกษาอิสระของหลักสูตร MBA"</strong> อย่างเคร่งครัด และต้องผ่านการตรวจสอบจากอาจารย์ที่ปรึกษาและผู้ตรวจรูปแบบของมหาวิทยาลัยเสมอ</p>
             </div>
-            <button class="modal-accept-btn" id="modal-accept-btn" onclick="closeDisclaimer()">รับทราบและเข้าใช้งาน (I
-                Understand)</button>
+            <button class="modal-accept-btn" id="modal-accept-btn" onclick="closeDisclaimer()" data-i18n="disclaimer.btn">รับทราบและเข้าใช้งาน (I Understand)</button>
         </div>
     </div>
-
+    <script>
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                const theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+                localStorage.setItem('theme', theme);
+            });
+        }
+    </script>
 </body>
 
 </html>
