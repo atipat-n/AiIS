@@ -8,7 +8,10 @@ v4.1: Restored sequence checker, TOC matcher, typo scanner, removed PDF.
 
 import io
 import uuid
-from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+import time
+import re
+import json
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -43,7 +46,7 @@ app.add_middleware(
 
 # In-memory session store
 sessions: dict[str, SessionData] = {}
-
+background_tasks_store: dict[str, dict] = {}
 
 def get_or_create_session(session_id: str) -> SessionData:
     if session_id not in sessions:
@@ -82,6 +85,74 @@ def _build_result(slot_number: int, slot_name: str, errors: list[HardRuleError],
     )
 
 
+def split_into_chunks(text: str, chunk_size: int = 2000) -> list[str]:
+    if not text:
+        return [""]
+    chunks = []
+    paragraphs = text.split('\n\n')
+    current = ""
+    for para in paragraphs:
+        if len(current) + len(para) + 2 > chunk_size and current:
+            chunks.append(current.strip())
+            current = para
+        else:
+            current = current + "\n\n" + para if current else para
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks if chunks else [text[:chunk_size]]
+
+def parse_gemini_json(s: str) -> list:
+    try:
+        clean = re.sub(r'```json', '', s, flags=re.IGNORECASE)
+        clean = clean.replace('```', '').strip()
+        return json.loads(clean)
+    except Exception:
+        return []
+
+def process_slot_background(task_id: str, file_bytes: bytes, slot_number: int, session_id: str):
+    try:
+        time.sleep(5)
+        
+        doc = Document(io.BytesIO(file_bytes))
+        errors = process_slot(doc, slot_number)
+        full_text = extract_text(doc)
+
+        session = get_or_create_session(session_id)
+        if slot_number == 3:
+            session.toc_headings = extract_toc_headings(doc)
+        if slot_number == 5:
+            session.reference_authors = extract_reference_authors(full_text)
+
+        if session.in_text_citations and session.reference_authors:
+            session.cross_check = cross_check(session.in_text_citations, session.reference_authors)
+
+        chunks = split_into_chunks(full_text, 2000)
+        all_json_objects = []
+        for i, chunk in enumerate(chunks):
+            try:
+                prompt = f"ตรวจสอบเอกสารส่วน: {SLOT_NAMES.get(slot_number, 'Unknown')}"
+                result_json_str = call_kku_llm(prompt=prompt, chunk_text=chunk, slot_number=slot_number, chapter=0)
+                parsed = parse_gemini_json(result_json_str)
+                if isinstance(parsed, list):
+                    all_json_objects.extend(parsed)
+            except Exception:
+                pass
+                
+        result = _build_result(slot_number, SLOT_NAMES.get(slot_number, "Unknown"), errors, None, full_text)
+        session.slot_results[slot_number] = result
+        
+        response = result.model_dump()
+        response["ai_errors"] = all_json_objects
+        response["total_chunks"] = len(chunks)
+        if slot_number == 3:
+            response["toc_headings_count"] = len(session.toc_headings)
+        if session.cross_check:
+            response["cross_check"] = session.cross_check.model_dump()
+
+        background_tasks_store[task_id] = {"status": "completed", "result": response}
+    except Exception as e:
+        background_tasks_store[task_id] = {"status": "error", "error": str(e)}
+
 # ──────────────────────────────────────────────
 # Slot upload endpoint (slots 1, 2, 3, 5)
 # ──────────────────────────────────────────────
@@ -89,12 +160,13 @@ def _build_result(slot_number: int, slot_name: str, errors: list[HardRuleError],
 @app.post("/api/slot/{slot_number}")
 async def upload_slot(
     slot_number: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     session_id: str = Query(...),
 ):
     """
     Upload a .docx file for a specific slot (1, 2, 3, or 5).
-    Returns structured JSON with hard_rules_errors and ai_soft_rules_feedback.
+    Returns immediately with a task_id for polling.
     """
     if slot_number not in (1, 2, 3, 5):
         raise HTTPException(400, "ใช้ /api/slot/4/{chapter} สำหรับเนื้อหาบทที่ 1-5")
@@ -102,79 +174,89 @@ async def upload_slot(
     if not file.filename.endswith(".docx"):
         raise HTTPException(400, "กรุณาอัปโหลดไฟล์ .docx เท่านั้น")
 
-    session = get_or_create_session(session_id)
     file_bytes = await file.read()
-
-    try:
-        doc = Document(io.BytesIO(file_bytes))
-    except Exception as e:
-        raise HTTPException(400, f"ไม่สามารถอ่านไฟล์ .docx ได้: {str(e)}")
-
-    # ── 1. Hard Rules Check ──
-    errors = process_slot(doc, slot_number)
-
-    # ── 2. Extract text ──
-    full_text = extract_text(doc)
-
-    # ── 3. Slot-specific logic ──
-    if slot_number == 3:
-        # TOC: extract headings and store in session
-        session.toc_headings = extract_toc_headings(doc)
-
-    if slot_number == 5:
-        # References: extract authors for citation cross-check
-        session.reference_authors = extract_reference_authors(full_text)
-
-    # Auto cross-check if both slots are available
-    if session.in_text_citations and session.reference_authors:
-        session.cross_check = cross_check(
-            session.in_text_citations,
-            session.reference_authors,
-        )
-
-    # ── 4. AI Soft Rules (chunked) ──
-    # Handled by frontend now.
-
-    # ── 5. Build structured result ──
-    result = _build_result(
-        slot_number=slot_number,
-        slot_name=SLOT_NAMES.get(slot_number, "Unknown"),
-        errors=errors,
-        ai_feedback=None,
-        full_text=full_text,
-    )
-
-    session.slot_results[slot_number] = result
-
-    # Build response
-    response = result.model_dump()
-    response["total_chunks"] = 0
-
-    # Include TOC heading count for Slot 3
-    if slot_number == 3:
-        response["toc_headings_count"] = len(session.toc_headings)
-
-    if session.cross_check:
-        response["cross_check"] = session.cross_check.model_dump()
-
-    return response
+    task_id = str(uuid.uuid4())
+    background_tasks_store[task_id] = {"status": "processing", "result": None}
+    
+    background_tasks.add_task(process_slot_background, task_id, file_bytes, slot_number, session_id)
+    
+    return {"status": "processing", "task_id": task_id}
 
 
 # ──────────────────────────────────────────────
 # Slot 4 Sub-slot (Chapters 1-5)
 # ──────────────────────────────────────────────
 
+def process_chapter_background(task_id: str, file_bytes: bytes, chapter: int, session_id: str):
+    try:
+        time.sleep(5)
+        
+        doc = Document(io.BytesIO(file_bytes))
+        errors = process_slot(doc, 4)
+        errors.extend(check_table_figure_sequences(doc, chapter))
+        full_text = extract_text(doc)
+
+        session = get_or_create_session(session_id)
+        content_headings = extract_content_headings(doc)
+        session.content_headings[chapter] = content_headings
+
+        if session.toc_headings:
+            errors.extend(match_toc_vs_content(session.toc_headings, content_headings))
+
+        chapter_citations = extract_in_text_citations(full_text)
+        session.chapter_citations[chapter] = chapter_citations
+
+        all_citations = set()
+        for ch_cites in session.chapter_citations.values():
+            all_citations |= ch_cites
+        session.in_text_citations = all_citations
+
+        if session.in_text_citations and session.reference_authors:
+            session.cross_check = cross_check(session.in_text_citations, session.reference_authors)
+
+        chunks = split_into_chunks(full_text, 2000)
+        all_json_objects = []
+        for i, chunk in enumerate(chunks):
+            try:
+                prompt = f"ตรวจสอบเอกสาร: {CHAPTER_NAMES.get(chapter, f'บทที่ {chapter}')}"
+                result_json_str = call_kku_llm(prompt=prompt, chunk_text=chunk, slot_number=4, chapter=chapter)
+                parsed = parse_gemini_json(result_json_str)
+                if isinstance(parsed, list):
+                    all_json_objects.extend(parsed)
+            except Exception:
+                pass
+                
+        chapter_name = CHAPTER_NAMES.get(chapter, f"บทที่ {chapter}")
+        result = _build_result(4, chapter_name, errors, None, full_text)
+        sub_slot_key = f"4.{chapter}"
+        session.slot_results[sub_slot_key] = result
+        
+        response = result.model_dump()
+        response["ai_errors"] = all_json_objects
+        response["chapter"] = chapter
+        response["sub_slot"] = sub_slot_key
+        response["citations_found"] = len(chapter_citations)
+        response["total_citations"] = len(session.in_text_citations)
+        response["content_headings_found"] = len(content_headings)
+        response["toc_available"] = len(session.toc_headings) > 0
+        response["total_chunks"] = len(chunks)
+        if session.cross_check:
+            response["cross_check"] = session.cross_check.model_dump()
+
+        background_tasks_store[task_id] = {"status": "completed", "result": response}
+    except Exception as e:
+        background_tasks_store[task_id] = {"status": "error", "error": str(e)}
+
 @app.post("/api/slot/4/{chapter}")
 async def upload_slot4_chapter(
     chapter: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     session_id: str = Query(...),
 ):
     """
     Upload a .docx file for Slot 4, specific chapter (1-5).
-    Hard rules (margins/fonts) are checked.
-    Citations are extracted and aggregated across all chapters.
-    AI feedback uses chapter-specific prompts.
+    Returns immediately with a task_id for polling.
     """
     if chapter not in range(1, 6):
         raise HTTPException(400, "Chapter must be between 1 and 5")
@@ -182,81 +264,19 @@ async def upload_slot4_chapter(
     if not file.filename.endswith(".docx"):
         raise HTTPException(400, "กรุณาอัปโหลดไฟล์ .docx เท่านั้น")
 
-    session = get_or_create_session(session_id)
     file_bytes = await file.read()
+    task_id = str(uuid.uuid4())
+    background_tasks_store[task_id] = {"status": "processing", "result": None}
+    
+    background_tasks.add_task(process_chapter_background, task_id, file_bytes, chapter, session_id)
+    
+    return {"status": "processing", "task_id": task_id}
 
-    try:
-        doc = Document(io.BytesIO(file_bytes))
-    except Exception as e:
-        raise HTTPException(400, f"ไม่สามารถอ่านไฟล์ .docx ได้: {str(e)}")
-
-    # ── 1. Hard Rules Check (margins + fonts + typos) ──
-    errors = process_slot(doc, 4)
-
-    # ── 2. Sequence Checker — table/figure numbering ──
-    errors.extend(check_table_figure_sequences(doc, chapter))
-
-    # ── 3. Extract text ──
-    full_text = extract_text(doc)
-
-    # ── 4. TOC Matcher — compare headings against stored TOC ──
-    content_headings = extract_content_headings(doc)
-    session.content_headings[chapter] = content_headings
-
-    if session.toc_headings:
-        errors.extend(match_toc_vs_content(
-            session.toc_headings,
-            content_headings,
-        ))
-
-    # ── 5. Citation extraction — aggregate across all chapters ──
-    chapter_citations = extract_in_text_citations(full_text)
-    session.chapter_citations[chapter] = chapter_citations
-
-    # Aggregate all chapter citations into the main set
-    all_citations = set()
-    for ch_cites in session.chapter_citations.values():
-        all_citations |= ch_cites
-    session.in_text_citations = all_citations
-
-    # Auto cross-check if references are also available
-    if session.in_text_citations and session.reference_authors:
-        session.cross_check = cross_check(
-            session.in_text_citations,
-            session.reference_authors,
-        )
-
-    # ── 4. AI Soft Rules (chapter-specific prompt, chunked) ──
-    # Handled by frontend now.
-    chapter_name = CHAPTER_NAMES.get(chapter, f"บทที่ {chapter}")
-
-    # ── 5. Build structured result ──
-    result = _build_result(
-        slot_number=4,
-        slot_name=chapter_name,
-        errors=errors,
-        ai_feedback=None,
-        full_text=full_text,
-    )
-
-    sub_slot_key = f"4.{chapter}"
-    session.slot_results[sub_slot_key] = result
-
-    # Build response
-    response = result.model_dump()
-    response["chapter"] = chapter
-    response["sub_slot"] = sub_slot_key
-    response["citations_found"] = len(chapter_citations)
-    response["total_citations"] = len(session.in_text_citations)
-    response["content_headings_found"] = len(content_headings)
-    response["toc_available"] = len(session.toc_headings) > 0
-    response["total_chunks"] = 0
-
-
-    if session.cross_check:
-        response["cross_check"] = session.cross_check.model_dump()
-
-    return response
+@app.get("/api/status/{task_id}")
+async def get_task_status(task_id: str):
+    if task_id not in background_tasks_store:
+        raise HTTPException(404, "Task not found")
+    return background_tasks_store[task_id]
 
 
 # ──────────────────────────────────────────────

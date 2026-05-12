@@ -16,3 +16,9 @@
 - **Security:** API keys MUST be read from the `.env` file. Never hardcode keys.
 - **AI Constraints:** Set Gemini API `temperature: 0.0` for deterministic outputs. AI evaluates content/context; `python-docx` handles physical measurements (margins, fonts).
 - **Rule:** Default to "Additive Changes" rather than destructive refactoring.
+
+### 5. Queue & Polling Architecture (Async Processing)
+- **Task Management:** Heavy docx and AI processing operations must run completely in the background to avoid browser connection timeouts. 
+- **Backend Flow:** Upload endpoints (`/api/slot/{n}`) generate a UUID (`task_id`), immediately spawn a FastAPI `BackgroundTasks` thread, and return `{"status": "processing", "task_id": "..."}`.
+- **Frontend Flow:** The `app.js` UI switches to a loading state and aggressively polls the `/api/status/{task_id}` endpoint every 2 seconds. The polling loop only breaks when the backend returns a status of `completed` (delivering the full `result` JSON) or `error`.
+- **Rule:** Do not revert to synchronous requests for document analysis. All long-running operations must comply with this polling pattern.

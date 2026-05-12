@@ -198,7 +198,7 @@ async function uploadSlot(n) {
     chunkWrap.classList.remove('hidden');
     chunkFill.style.transition = 'width 0.3s ease';
     chunkFill.style.width = '0%';
-    chunkStatus.textContent = 'กำลังแยกวิเคราะห์ไฟล์...';
+    chunkStatus.textContent = 'กำลังประมวลผล (Background Task)...';
 
     const formData = new FormData();
     formData.append('file', input.files[0]);
@@ -213,74 +213,41 @@ async function uploadSlot(n) {
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
 
-        const data = await res.json();
-        const chunks = splitIntoChunks(data.full_text || "", 2000);
-        let allJsonObjects = [];
+        const taskData = await res.json();
+        const taskId = taskData.task_id;
+        
+        let pct = 0;
+        let progTimer = setInterval(() => {
+            if (pct < 95) {
+                pct += Math.random() * 5;
+                if (pct > 95) pct = 95;
+                chunkFill.style.width = pct + '%';
+            }
+        }, 500);
 
-        for (let i = 0; i < chunks.length; i++) {
-            let chunk = chunks[i];
-            let success = false;
+        let isComplete = false;
+        let data = null;
+        
+        while (!isComplete) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const statusRes = await fetch(`${API_BASE}/api/status/${taskId}`);
+            if (!statusRes.ok) throw new Error("Failed to check status");
             
-            while (!success) {
-                let basePct = (i / chunks.length) * 100;
-                let contrib = (1 / chunks.length) * 100;
-                
-                chunkStatus.textContent = `กำลังวิเคราะห์ส่วนที่ ${i + 1}/${chunks.length}...`;
-                chunkFill.style.width = basePct + '%';
-                
-                let currentProg = 0;
-                let progTimer = setInterval(() => {
-                    if (currentProg < 0.85) {
-                        currentProg += Math.random() * 0.05 + 0.02;
-                        if (currentProg > 0.85) currentProg = 0.85;
-                        chunkFill.style.width = (basePct + (currentProg * contrib)) + '%';
-                    }
-                }, 500);
-                
-                let aiRes = await fetch(`${API_BASE}/api/ai_chunk`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chunk_text: chunk,
-                        slot_number: n,
-                        chapter: 0,
-                        chunk_index: i + 1,
-                        total_chunks: chunks.length
-                    })
-                });
-                
-                let aiData = await aiRes.json();
-                
-                clearInterval(progTimer);
-                
-                if (!aiData.success) {
-                    if (aiData.error === '429_QUOTA') {
-                        await runCountdown(30, "⚠️ โควต้า AI ของ Google เต็มชั่วคราว! กำลังรอคูลดาวน์ระบบ... พยายามส่งใหม่ใน {X} วินาที", chunkStatus);
-                        continue;
-                    } else {
-                        throw new Error(aiData.message);
-                    }
-                }
-                
-                let parsedArray = parseGeminiJSON(aiData.data);
-                if (Array.isArray(parsedArray)) {
-                    allJsonObjects.push(...parsedArray);
-                }
-                success = true;
-                
-                chunkFill.style.width = (basePct + contrib) + '%';
-                
-                if (i < chunks.length - 1) {
-                    await runCountdown(15, "⏳ กำลังพักคูลดาวน์ AI เพื่อป้องกันโควต้าเต็ม... ส่งข้อมูลถัดไปใน {X} วินาที", chunkStatus);
-                }
+            const statusJson = await statusRes.json();
+            if (statusJson.status === "completed") {
+                isComplete = true;
+                data = statusJson.result;
+            } else if (statusJson.status === "error") {
+                throw new Error(statusJson.error);
             }
         }
         
+        clearInterval(progTimer);
         chunkFill.style.width = '100%';
-        chunkStatus.textContent = `✅ วิเคราะห์ครบ ${chunks.length} ส่วนแล้ว (100%)`;
+        chunkStatus.textContent = `✅ วิเคราะห์เสร็จสิ้น (100%)`;
         setTimeout(() => { chunkWrap.classList.add('hidden'); }, 1500);
 
-        // Sync AI Errors to Slot Badges (Ghost Errors fix)
+        let allJsonObjects = data.ai_errors || [];
         let totalErrors = data.error_count + allJsonObjects.length;
         data.status = (totalErrors === 0 && data.warning_count === 0) ? 'passed' : 'issues_found';
         data.error_count = totalErrors;
@@ -309,11 +276,9 @@ async function uploadSlot(n) {
         collectErrors(sourceName, data.hard_rules_errors);
         if (data.cross_check) renderCrossCheck(data.cross_check);
         
-        // Pass the raw AI JSON array to the summary
         updateAISummary(`slot-${n}`, data.slot_name, allJsonObjects, totalErrors);
 
     } catch (err) {
-        
         chunkWrap.classList.add('hidden');
         statusEl.className = 'slot-status status-failed';
         statusEl.textContent = '❌ ผิดพลาด';
@@ -357,7 +322,7 @@ async function uploadChapter(ch) {
     chunkWrap.classList.remove('hidden');
     chunkFill.style.transition = 'width 0.3s ease';
     chunkFill.style.width = '0%';
-    chunkStatus.textContent = 'กำลังแยกวิเคราะห์ไฟล์...';
+    chunkStatus.textContent = 'กำลังประมวลผล (Background Task)...';
 
     const formData = new FormData();
     formData.append('file', input.files[0]);
@@ -372,74 +337,41 @@ async function uploadChapter(ch) {
             throw new Error(err.detail || `HTTP ${res.status}`);
         }
 
-        const data = await res.json();
-        const chunks = splitIntoChunks(data.full_text || "", 2000);
-        let allJsonObjects = [];
+        const taskData = await res.json();
+        const taskId = taskData.task_id;
+        
+        let pct = 0;
+        let progTimer = setInterval(() => {
+            if (pct < 95) {
+                pct += Math.random() * 5;
+                if (pct > 95) pct = 95;
+                chunkFill.style.width = pct + '%';
+            }
+        }, 500);
 
-        for (let i = 0; i < chunks.length; i++) {
-            let chunk = chunks[i];
-            let success = false;
+        let isComplete = false;
+        let data = null;
+        
+        while (!isComplete) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const statusRes = await fetch(`${API_BASE}/api/status/${taskId}`);
+            if (!statusRes.ok) throw new Error("Failed to check status");
             
-            while (!success) {
-                let basePct = (i / chunks.length) * 100;
-                let contrib = (1 / chunks.length) * 100;
-                
-                chunkStatus.textContent = `กำลังวิเคราะห์ส่วนที่ ${i + 1}/${chunks.length}...`;
-                chunkFill.style.width = basePct + '%';
-                
-                let currentProg = 0;
-                let progTimer = setInterval(() => {
-                    if (currentProg < 0.85) {
-                        currentProg += Math.random() * 0.05 + 0.02;
-                        if (currentProg > 0.85) currentProg = 0.85;
-                        chunkFill.style.width = (basePct + (currentProg * contrib)) + '%';
-                    }
-                }, 500);
-                
-                let aiRes = await fetch(`${API_BASE}/api/ai_chunk`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        chunk_text: chunk,
-                        slot_number: 4,
-                        chapter: ch,
-                        chunk_index: i + 1,
-                        total_chunks: chunks.length
-                    })
-                });
-                
-                let aiData = await aiRes.json();
-                
-                clearInterval(progTimer);
-                
-                if (!aiData.success) {
-                    if (aiData.error === '429_QUOTA') {
-                        await runCountdown(30, "⚠️ โควต้า AI ของ Google เต็มชั่วคราว! กำลังรอคูลดาวน์ระบบ... พยายามส่งใหม่ใน {X} วินาที", chunkStatus);
-                        continue;
-                    } else {
-                        throw new Error(aiData.message);
-                    }
-                }
-                
-                let parsedArray = parseGeminiJSON(aiData.data);
-                if (Array.isArray(parsedArray)) {
-                    allJsonObjects.push(...parsedArray);
-                }
-                success = true;
-                
-                chunkFill.style.width = (basePct + contrib) + '%';
-                
-                if (i < chunks.length - 1) {
-                    await runCountdown(15, "⏳ กำลังพักคูลดาวน์ AI เพื่อป้องกันโควต้าเต็ม... ส่งข้อมูลถัดไปใน {X} วินาที", chunkStatus);
-                }
+            const statusJson = await statusRes.json();
+            if (statusJson.status === "completed") {
+                isComplete = true;
+                data = statusJson.result;
+            } else if (statusJson.status === "error") {
+                throw new Error(statusJson.error);
             }
         }
         
+        clearInterval(progTimer);
         chunkFill.style.width = '100%';
-        chunkStatus.textContent = `✅ วิเคราะห์ครบ ${chunks.length} ส่วนแล้ว (100%)`;
+        chunkStatus.textContent = `✅ วิเคราะห์เสร็จสิ้น (100%)`;
         setTimeout(() => { chunkWrap.classList.add('hidden'); }, 1500);
 
-        // Sync AI Errors to Slot Badges (Ghost Errors fix)
+        let allJsonObjects = data.ai_errors || [];
         let totalErrors = data.error_count + allJsonObjects.length;
         data.status = (totalErrors === 0 && data.warning_count === 0) ? 'passed' : 'issues_found';
         data.error_count = totalErrors;
@@ -474,16 +406,11 @@ async function uploadChapter(ch) {
         resultEl.innerHTML = resultHtml;
 
         collectErrors(sourceName, data.hard_rules_errors);
-
         updateSlot4MainStatus(mainStatusEl, mainProgEl);
-
         if (data.cross_check) renderCrossCheck(data.cross_check);
-        
-        // Pass the raw AI JSON array to the summary
         updateAISummary(`ch-${ch}`, chNames[ch], allJsonObjects, totalErrors);
 
     } catch (err) {
-        
         chunkWrap.classList.add('hidden');
         statusEl.className = 'slot-status status-failed';
         statusEl.textContent = '❌';
